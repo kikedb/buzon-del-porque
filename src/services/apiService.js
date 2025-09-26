@@ -161,6 +161,10 @@ const apiService = {
       const dataToSend = {
         tipo: messageData.tipo,
         mensaje: messageData.mensaje.trim(),
+        categoria: messageData.categoria,
+        departamento: messageData.departamento || '',
+        prioridad: messageData.prioridad || 'media',
+        ticketId: messageData.ticketId || '',
         timestamp: new Date().toISOString(),
         fecha: new Date().toLocaleDateString('es-ES'),
         hora: new Date().toLocaleTimeString('es-ES'),

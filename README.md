@@ -81,6 +81,9 @@ Cuando se envía un formulario, los datos se envían al webhook con la siguiente
 {
   "tipo": "anonimo",
   "mensaje": "Contenido del mensaje",
+  "categoria": "pregunta",
+  "departamento": "it",
+  "prioridad": "media",
   "timestamp": "2024-01-15T10:30:00.000Z",
   "fecha": "15/1/2024",
   "hora": "10:30:00",
@@ -93,9 +96,12 @@ Cuando se envía un formulario, los datos se envían al webhook con la siguiente
 {
   "tipo": "identificado",
   "nombre": "Juan Pérez",
-  "email": "juan@example.com",
+  "email": "juan@ecomac.cl",
   "empresa": "Mi Empresa S.A.",
   "mensaje": "Contenido del mensaje",
+  "categoria": "sugerencia",
+  "departamento": "rrhh",
+  "prioridad": "alta",
   "timestamp": "2024-01-15T10:30:00.000Z",
   "fecha": "15/1/2024",
   "hora": "10:30:00",
@@ -117,14 +123,22 @@ https://inmobiliaria-ecomac.app.n8n.cloud/webhook/a15c54d3-e59d-4469-823f-99b4d0
 
 #### Campos Obligatorios (Modo Identificado)
 - **Nombre**: Mínimo 2 caracteres, máximo 50
-- **Email**: Formato válido, máximo 100 caracteres
+- **Email**: Formato válido, máximo 100 caracteres, dominios permitidos
 - **Mensaje**: Mínimo 10 caracteres, máximo 500
+- **Categoría**: Selección de tipo de mensaje (pregunta, sugerencia, queja, felicitación, bug, otro)
 
-#### Campos Opcionales
+#### Campos Opcionales (Modo Identificado)
 - **Empresa**: Máximo 100 caracteres
+- **Departamento**: RRHH, IT, Ventas, Operaciones, Marketing, Finanzas, Administración, Gerencia
+- **Prioridad**: Baja, Media (default), Alta, Urgente
 
 #### Campos Obligatorios (Modo Anónimo)
 - **Mensaje**: Mínimo 10 caracteres, máximo 500
+- **Categoría**: Selección de tipo de mensaje (pregunta, sugerencia, queja, felicitación, bug, otro)
+
+#### Campos Opcionales (Modo Anónimo)
+- **Departamento**: RRHH, IT, Ventas, Operaciones, Marketing, Finanzas, Administración, Gerencia
+- **Prioridad**: Baja, Media (default), Alta, Urgente
 
 ## 🎨 Características de UX/UI
 

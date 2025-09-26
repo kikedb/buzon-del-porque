@@ -46,9 +46,13 @@ Variables de entorno requeridas:
 
 #### Funcionalidades Clave
 1. **Modo Dual**: Permite envío anónimo o identificado
-2. **Validación en Tiempo Real**: Validación de campos con mensajes específicos
-3. **Manejo de Estados**: Loading, success, error states
-4. **Validación de Dominios**: Solo acepta emails de dominios específicos (@ecomac.cl, @kawen.cl, @ecomacempresas.cl, @ceres.cl, @bilbola.cl)
+2. **Sistema de Categorización**: 
+   - Categorías de mensaje: Pregunta, Sugerencia, Queja, Felicitación, Bug, Otro
+   - Tags de departamento: RRHH, IT, Ventas, Operaciones, Marketing, Finanzas, Administración, Gerencia
+   - Niveles de prioridad: Baja, Media, Alta, Urgente
+3. **Validación en Tiempo Real**: Validación de campos con mensajes específicos
+4. **Manejo de Estados**: Loading, success, error states
+5. **Validación de Dominios**: Solo acepta emails de dominios específicos (@ecomac.cl, @kawen.cl, @ecomacempresas.cl, @ceres.cl, @bilbola.cl)
 
 ### Servicios
 
@@ -65,6 +69,9 @@ Variables de entorno requeridas:
 {
   "tipo": "anonimo",
   "mensaje": "contenido",
+  "categoria": "pregunta|sugerencia|queja|felicitacion|bug|otro",
+  "departamento": "rrhh|it|ventas|operaciones|marketing|finanzas|administracion|gerencia",
+  "prioridad": "baja|media|alta|urgente",
   "timestamp": "ISO string",
   "fecha": "DD/MM/AAAA",
   "hora": "HH:mm:ss",
@@ -80,6 +87,9 @@ Variables de entorno requeridas:
   "email": "string",
   "empresa": "string",
   "mensaje": "string",
+  "categoria": "pregunta|sugerencia|queja|felicitacion|bug|otro",
+  "departamento": "rrhh|it|ventas|operaciones|marketing|finanzas|administracion|gerencia",
+  "prioridad": "baja|media|alta|urgente",
   "timestamp": "ISO string",
   "fecha": "DD/MM/AAAA", 
   "hora": "HH:mm:ss",
@@ -93,9 +103,20 @@ Variables de entorno requeridas:
 - **Nombre**: 2-50 caracteres
 - **Email**: Formato válido + dominios permitidos
 - **Mensaje**: 10-500 caracteres
+- **Categoría**: Selección obligatoria de tipo de mensaje
+
+#### Campos Opcionales (Modo Identificado)
+- **Empresa**: Máximo 100 caracteres
+- **Departamento**: Selección opcional de departamento
+- **Prioridad**: Por defecto "media"
 
 #### Campos Requeridos (Modo Anónimo)
 - **Mensaje**: 10-500 caracteres
+- **Categoría**: Selección obligatoria de tipo de mensaje
+
+#### Campos Opcionales (Modo Anónimo)
+- **Departamento**: Selección opcional de departamento
+- **Prioridad**: Por defecto "media"
 
 ### Patrones de Desarrollo
 
