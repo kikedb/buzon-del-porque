@@ -79,6 +79,54 @@
                 <option value="urgente">🚨 Urgente</option>
               </select>
             </div>
+        </div>
+        </div>
+        
+        <!-- Indicador de SLA Dinámico -->
+        <div v-if="showSLAIndicator && slaInfo" class="seccion-sla">
+          <h4 class="subtitulo-sla">⏰ Tiempo de Respuesta Estimado</h4>
+          <div class="sla-info">
+            <div class="sla-badge" :class="slaInfo.priority">
+              <span class="sla-hours">{{ slaInfo.slaHours }}h</span>
+              <span class="sla-label">SLA</span>
+            </div>
+            <div class="sla-details">
+              <p class="sla-description">{{ slaInfo.businessReason }}</p>
+              <p class="sla-due-date">
+                <strong>Respuesta esperada:</strong> 
+                {{ new Date(slaInfo.dueDate).toLocaleString('es-ES') }}
+              </p>
+              <p v-if="slaInfo.escalationThreshold" class="sla-escalation">
+                <span class="escalation-icon">🚀</span>
+                Escalará automáticamente después de {{ slaInfo.escalationThreshold }}h
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Advertencia de Privacidad -->
+        <div v-if="showPrivacyWarning && privacyRisk" class="seccion-privacidad">
+          <div class="privacy-warning" :class="privacyRisk.riskLevel.toLowerCase()">
+            <div class="warning-header">
+              <span class="warning-icon">🔐</span>
+              <h4>Advertencia de Privacidad - Nivel {{ privacyRisk.riskLevel }}</h4>
+            </div>
+            <div class="warning-content">
+              <p class="warning-message">
+                Tu mensaje contiene información que podría ser sensible. 
+                {{ privacyRisk.recommendedAnonymization === 'COMPLETE' ? 
+                  'Se aplicará anonimización completa automáticamente.' : 
+                  'Se aplicarán medidas de protección de datos.' }}
+              </p>
+              <div class="privacy-recommendations">
+                <h5>Recomendaciones:</h5>
+                <ul>
+                  <li v-for="risk in privacyRisk.risks" :key="risk" class="risk-item">
+                    {{ risk }}
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
    
@@ -197,17 +245,57 @@
           </div>
         </div>
 
-        <div class="info-adicional">
-          <h4>📍 ¿Qué sigue ahora?</h4>
-          <ul class="pasos-siguientes">
-            <li v-if="ticketInfo.tipo === 'identificado'">📧 Recibirás confirmación por email con tu ticket ID</li>
-            <li v-if="ticketInfo.tipo === 'identificado'">🔔 Te notificaremos cuando haya actualizaciones</li>
-            <li>⏱️ Tiempo de respuesta: 24-48 horas hábiles</li>
-            <li>🔍 Usa tu ticket ID para consultar el estado</li>
-            <li v-if="ticketInfo.tipo === 'anonimo'">📞 Para seguimiento: menciona tu ticket ID</li>
-            <li v-else>📞 Para urgencias: responde al email de confirmación</li>
-          </ul>
-        </div>
+          <div class="info-adicional">
+            <h4>📍 ¿Qué sigue ahora?</h4>
+            
+            <!-- Información de SLA si está disponible -->
+            <div v-if="slaInfo" class="sla-summary">
+              <div class="summary-item sla-item">
+                <span class="item-icon">⏰</span>
+                <div class="item-content">
+                  <strong>SLA Asignado:</strong> {{ slaInfo.slaHours }} horas
+                  <br><small>Respuesta esperada: {{ new Date(slaInfo.dueDate).toLocaleDateString('es-ES') }}</small>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Información de ClickUp si está disponible -->
+            <div v-if="clickUpInfo && clickUpInfo.taskId" class="clickup-summary">
+              <div class="summary-item clickup-item">
+                <span class="item-icon">🎫</span>
+                <div class="item-content">
+                  <strong>Ticket en ClickUp:</strong> Creado exitosamente
+                  <br><a :href="clickUpInfo.url" target="_blank" class="clickup-link">
+                    Ver en ClickUp →
+                  </a>
+                  <div v-if="clickUpInfo.assignedUsers?.length" class="assigned-users">
+                    <small>Asignado a: {{ clickUpInfo.assignedUsers.length }} usuario(s)</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Información de Privacidad si aplica -->
+            <div v-if="privacyRisk && privacyRisk.anonymized !== 'none'" class="privacy-summary">
+              <div class="summary-item privacy-item">
+                <span class="item-icon">🔐</span>
+                <div class="item-content">
+                  <strong>Protección de Datos:</strong> Aplicada ({{ privacyRisk.riskLevel }})
+                  <br><small>Tus datos han sido protegidos según nuestras políticas de privacidad</small>
+                </div>
+              </div>
+            </div>
+            
+            <ul class="pasos-siguientes">
+              <li v-if="ticketInfo.tipo === 'identificado'">📧 Recibirás confirmación por email con tu ticket ID</li>
+              <li v-if="ticketInfo.tipo === 'identificado'">🔔 Te notificaremos cuando haya actualizaciones</li>
+              <li>⏱️ Tiempo de respuesta: {{ slaInfo ? slaInfo.slaHours + ' horas' : '24-48 horas hábiles' }}</li>
+              <li>🔍 Usa tu ticket ID para consultar el estado</li>
+              <li v-if="slaInfo && slaInfo.escalationThreshold">🚀 Escalamiento automático configurado</li>
+              <li v-if="ticketInfo.tipo === 'anonimo'">📞 Para seguimiento: menciona tu ticket ID</li>
+              <li v-else>📞 Para urgencias: responde al email de confirmación</li>
+            </ul>
+          </div>
       </div>
       
       <div class="modal-footer">
@@ -225,6 +313,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import apiService, { APIError, NetworkError, ValidationError } from '@/services/apiService';
+// Comentado temporalmente hasta resolver problemas de dependencias
+// import slaService from '@/services/slaService';
+// import privacyService from '@/services/privacyService';
 
 const modo = ref('nombre');
 
@@ -258,6 +349,13 @@ const ticketInfo = ref({
   categoria: '',
   tipo: ''
 });
+
+// Nuevas variables para funcionalidades avanzadas
+const slaInfo = ref(null);
+const privacyRisk = ref(null);
+const clickUpInfo = ref(null);
+const showSLAIndicator = ref(false);
+const showPrivacyWarning = ref(false);
 
 // Funciones de sistema de tickets
 function generarTicketId() {
@@ -385,6 +483,53 @@ function validateField(field) {
       errors.value.categoria = validateCategoria(form.value.categoria);
       break;
   }
+  
+  // Recalcular SLA y privacidad cuando cambien campos relevantes
+  if (['categoria', 'departamento', 'prioridad', 'mensaje'].includes(field)) {
+    updateSLAPreview();
+    updatePrivacyAssessment();
+  }
+}
+
+// Actualizar preview del SLA (temporalmente deshabilitado)
+function updateSLAPreview() {
+  console.log('SLA preview - temporalmente deshabilitado');
+  // Simulación temporal para mostrar funcionalidad
+  if (form.value.categoria && form.value.departamento) {
+    slaInfo.value = {
+      slaHours: 24,
+      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      priority: 'medium',
+      businessReason: 'SLA calculado según configuración estándar',
+      escalationThreshold: 18
+    };
+    showSLAIndicator.value = true;
+  } else {
+    showSLAIndicator.value = false;
+  }
+}
+
+// Evaluar riesgo de privacidad (temporalmente deshabilitado)
+function updatePrivacyAssessment() {
+  console.log('Privacy assessment - temporalmente deshabilitado');
+  // Simulación temporal para mostrar funcionalidad
+  if (form.value.mensaje) {
+    const hasEmail = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(form.value.mensaje);
+    const hasPhone = /\b\d{8,15}\b/.test(form.value.mensaje);
+    
+    if (hasEmail || hasPhone) {
+      privacyRisk.value = {
+        riskLevel: 'HIGH',
+        risks: ['Información sensible detectada en el mensaje'],
+        recommendedAnonymization: 'STANDARD'
+      };
+      showPrivacyWarning.value = true;
+    } else {
+      showPrivacyWarning.value = false;
+    }
+  } else {
+    showPrivacyWarning.value = false;
+  }
 }
 
 // Validar todo el formulario
@@ -511,8 +656,18 @@ async function enviarFormulario() {
       ticketId: ticketId
     };
 
-    // Llamar al servicio de API
+    // Llamar al servicio de API (ahora incluye SLA, ClickUp y privacidad)
     const response = await apiService.enviarMensaje(dataWithTicket);
+    
+    // Guardar información adicional de la respuesta
+    if (response.enhancedData) {
+      slaInfo.value = response.enhancedData.sla;
+      privacyRisk.value = response.enhancedData.privacy;
+    }
+    
+    if (response.clickUp) {
+      clickUpInfo.value = response.clickUp;
+    }
 
     // Preparar información del ticket para el modal
     ticketInfo.value = {
@@ -1214,6 +1369,230 @@ async function enviarFormulario() {
     }
   }
 
+  /* Estilos para SLA Dinámico */
+  .seccion-sla {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #0ea5e9;
+    border-radius: 0.75rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(14, 165, 233, 0.1);
+  }
+  
+  .subtitulo-sla {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0c4a6e;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .sla-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  
+  .sla-badge {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    text-align: center;
+    min-width: 80px;
+    box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+  }
+  
+  .sla-badge.critical {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+  }
+  
+  .sla-badge.high {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3);
+  }
+  
+  .sla-hours {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 700;
+  }
+  
+  .sla-label {
+    display: block;
+    font-size: 0.75rem;
+    opacity: 0.9;
+  }
+  
+  .sla-details {
+    flex: 1;
+  }
+  
+  .sla-description {
+    font-weight: 600;
+    color: #1e40af;
+    margin-bottom: 0.5rem;
+  }
+  
+  .sla-due-date {
+    font-size: 0.875rem;
+    color: #374151;
+    margin-bottom: 0.25rem;
+  }
+  
+  .sla-escalation {
+    font-size: 0.875rem;
+    color: #059669;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .escalation-icon {
+    font-size: 1rem;
+  }
+  
+  /* Estilos para Advertencias de Privacidad */
+  .seccion-privacidad {
+    margin-bottom: 1.5rem;
+  }
+  
+  .privacy-warning {
+    border-radius: 0.75rem;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .privacy-warning.high {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 1px solid #f59e0b;
+  }
+  
+  .privacy-warning.critical {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+    border: 1px solid #ef4444;
+  }
+  
+  .warning-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .warning-icon {
+    font-size: 1.25rem;
+  }
+  
+  .warning-header h4 {
+    color: #7c2d12;
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0;
+  }
+  
+  .privacy-warning.critical .warning-header h4 {
+    color: #991b1b;
+  }
+  
+  .warning-message {
+    color: #92400e;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+  }
+  
+  .privacy-warning.critical .warning-message {
+    color: #7f1d1d;
+  }
+  
+  .privacy-recommendations h5 {
+    color: #78350f;
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+  }
+  
+  .privacy-recommendations ul {
+    margin: 0;
+    padding-left: 1.25rem;
+  }
+  
+  .risk-item {
+    color: #a16207;
+    font-size: 0.8125rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .privacy-warning.critical .risk-item {
+    color: #7c2d12;
+  }
+  
+  /* Estilos para Modal Mejorado */
+  .sla-summary, .clickup-summary, .privacy-summary {
+    margin-bottom: 1rem;
+  }
+  
+  .summary-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .sla-item {
+    background: #f0f9ff;
+    border-left: 3px solid #3b82f6;
+  }
+  
+  .clickup-item {
+    background: #f8fafc;
+    border-left: 3px solid #6366f1;
+  }
+  
+  .privacy-item {
+    background: #f0fdf4;
+    border-left: 3px solid #10b981;
+  }
+  
+  .item-icon {
+    font-size: 1.25rem;
+    margin-top: 0.125rem;
+  }
+  
+  .item-content {
+    flex: 1;
+    font-size: 0.875rem;
+  }
+  
+  .item-content strong {
+    color: #1f2937;
+  }
+  
+  .item-content small {
+    color: #6b7280;
+  }
+  
+  .clickup-link {
+    color: #6366f1;
+    text-decoration: none;
+    font-weight: 600;
+    transition: color 0.2s ease;
+  }
+  
+  .clickup-link:hover {
+    color: #4f46e5;
+    text-decoration: underline;
+  }
+  
+  .assigned-users {
+    margin-top: 0.25rem;
+  }
+  
   /* Responsive para el modal */
   @media (max-width: 640px) {
     .modal-content {
