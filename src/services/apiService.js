@@ -4,11 +4,11 @@
  * Incluye integración con SLA, escalamiento, ClickUp y privacidad
  */
 
-// Comentado temporalmente hasta resolver problemas de dependencias
-// import slaService from './slaService.js';
-// import escalationService from './escalationService.js';
-// import clickupService from './clickupService.js';
-// import privacyService from './privacyService.js';
+// Servicios empresariales integrados
+import slaService from './slaService.js';
+import escalationService from './escalationService.js';
+import clickupService from './clickupService.js';
+import privacyService from './privacyService.js';
 
 // Configuración base de la API
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://inmobiliaria-ecomac.app.n8n.cloud';
@@ -169,16 +169,22 @@ const apiService = {
       
       let processedData = messageData;
       
-      // Simulación temporal de SLA
-      const slaData = {
-        slaHours: 24,
-        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
-        escalationThreshold: 18,
-        priority: 'medium',
-        businessReason: 'SLA estándar aplicado'
-      };
-      
-      console.log('⏰ SLA calculado (simulado):', slaData);
+      // Cálculo real de SLA
+      let slaData;
+      try {
+        slaData = slaService.calculateSLA(messageData);
+        console.log('⏰ SLA calculado:', slaData);
+      } catch (slaError) {
+        console.warn('⚠️ Error calculando SLA, usando valores por defecto:', slaError);
+        // Fallback a valores por defecto si el servicio SLA falla
+        slaData = {
+          slaHours: 24,
+          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+          escalationThreshold: 18,
+          priority: 'medium',
+          businessReason: 'SLA estándar aplicado (fallback)'
+        };
+      }
       
       // 3. Preparar datos para envío al webhook de n8n (incluyendo SLA)
       const dataToSend = {
@@ -226,16 +232,35 @@ const apiService = {
       
       console.log('✅ Mensaje enviado exitosamente:', result);
       
-      // 4. Funcionalidades empresariales (simuladas temporalmente)
-      console.log('🎫 ClickUp: Simulando creación de ticket...');
-      console.log('📋 Auditoría: Simulando log de privacidad...');
+      // 4. Crear ticket en ClickUp
+      let clickUpResult = null;
+      try {
+        console.log('🎫 ClickUp: Creando ticket real...');
+        clickUpResult = await clickupService.createClickUpTicket({
+          ...dataToSend,
+          sla: slaData
+        });
+        console.log('✅ ClickUp ticket creado:', clickUpResult);
+      } catch (clickUpError) {
+        console.error('⚠️ Error creando ticket ClickUp:', clickUpError);
+        // No fallar el envío principal si ClickUp falla
+        clickUpResult = {
+          success: false,
+          error: clickUpError.message,
+          fallback: true
+        };
+      }
       
-      // Simulación de respuesta de ClickUp
-      result.clickUp = {
-        taskId: 'DEMO-' + Date.now(),
-        url: 'https://app.clickup.com/demo',
-        assignedUsers: [{ name: 'Usuario Demo' }]
-      };
+      console.log('📋 Auditoría: Registrando actividad...');
+      
+      // Actualizar resultado con datos reales de ClickUp
+      if (clickUpResult && clickUpResult.success) {
+        result.clickUp = {
+          taskId: clickUpResult.clickUpTaskId,
+          url: clickUpResult.clickUpUrl,
+          assignedUsers: clickUpResult.assignedUsers || []
+        };
+      }
       
       // 6. Programar verificación de escalamiento si es necesario
       if (slaData.escalationThreshold && processedData.prioridad !== 'baja') {

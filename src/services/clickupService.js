@@ -135,10 +135,14 @@ class ClickUpClient {
 const clickUpClient = new ClickUpClient();
 
 /**
- * Crear ticket en ClickUp desde mensaje del buzón
+ * Crear ticket en ClickUp desde mensaje del buzón con retry logic
  */
-export async function createClickUpTicket(messageData) {
-  try {
+export async function createClickUpTicket(messageData, retries = 3) {
+  let lastError = null;
+  
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`🔄 Intento ${attempt}/${retries} - Creando ticket ClickUp...`);
     // Calcular SLA para el mensaje
     const slaData = calculateSLA(messageData);
     
@@ -179,9 +183,21 @@ export async function createClickUpTicket(messageData) {
       }
     };
     
-  } catch (error) {
-    console.error('❌ Error creando ticket en ClickUp:', error);
-    throw new Error(`Failed to create ClickUp ticket: ${error.message}`);
+    } catch (error) {
+      lastError = error;
+      console.error(`❗ Error en intento ${attempt}/${retries}:`, error);
+      
+      // Si es el último intento o es un error no recuperable, lanzar error
+      if (attempt === retries || error.status === 401 || error.status === 403) {
+        console.error('❌ Error definitivo creando ticket en ClickUp:', error);
+        throw new Error(`Failed to create ClickUp ticket after ${retries} attempts: ${error.message}`);
+      }
+      
+      // Esperar antes del siguiente intento (exponential backoff)
+      const waitTime = Math.min(1000 * Math.pow(2, attempt - 1), 10000);
+      console.log(`⏳ Esperando ${waitTime}ms antes del siguiente intento...`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+    }
   }
 }
 
@@ -197,13 +213,18 @@ function prepareTicketData(messageData, slaData) {
   // Descripción completa
   const description = generateTicketDescription(messageData, slaData);
   
-  // Tags del ticket
+  // Tags siguiendo el patrón de tu ClickUp actual
   const tags = [
+    // Tag principal del buzón
     'buzon-del-porque',
-    categoria,
+    // Departamento directo (como en tu ClickUp)
     messageData.departamento || 'general',
-    messageData.tipo,
-    ...CATEGORY_TAGS[categoria] || []
+    // Categoría técnica
+    ...CATEGORY_TAGS[categoria] || [],
+    // Prioridad solo si es crítica
+    ...(prioridad === 'urgente' || prioridad === 'alta' ? [prioridad] : []),
+    // Tipo de solicitud
+    messageData.tipo === 'identificado' ? 'interno' : 'anonimo'
   ];
   
   return {
@@ -212,6 +233,8 @@ function prepareTicketData(messageData, slaData) {
     priority: PRIORITY_MAPPING[prioridad] || 3,
     tags: tags,
     due_date: slaData.dueDate.getTime(),
+    // Estado inicial como en tu ClickUp (ajustar según tus estados exactos)
+    status: 'pendiente servidor dev',
     custom_fields: [
       {
         id: 'original_ticket_id',
@@ -224,16 +247,22 @@ function prepareTicketData(messageData, slaData) {
       {
         id: 'message_type', 
         value: messageData.tipo
+      },
+      {
+        id: 'department',
+        value: messageData.departamento || 'general'
       }
     ]
   };
 }
 
 /**
- * Generar título descriptivo para el ticket
+ * Generar título descriptivo con clasificación mejorada para lista única
  */
 function generateTicketTitle(messageData) {
-  const { categoria, departamento, ticketId } = messageData;
+  const { categoria, departamento, prioridad, ticketId } = messageData;
+  
+  // Emojis por categoría
   const categoryEmoji = {
     'pregunta': '❓',
     'sugerencia': '💡', 
@@ -243,14 +272,40 @@ function generateTicketTitle(messageData) {
     'otro': '📝'
   };
   
-  const emoji = categoryEmoji[categoria] || '📋';
-  const dept = departamento ? `[${departamento.toUpperCase()}]` : '';
+  // Emojis por departamento para mejor visualización
+  const deptEmoji = {
+    'rrhh': '👥',
+    'it': '💻', 
+    'ventas': '💼',
+    'operaciones': '⚙️',
+    'marketing': '📢',
+    'finanzas': '💰',
+    'administracion': '📋',
+    'gerencia': '🎯'
+  };
+  
+  // Indicadores de prioridad para título
+  const priorityIndicator = {
+    'urgente': '🚨',
+    'alta': '🔴',
+    'media': '🟡',
+    'baja': '🟢'
+  };
+  
+  const categoryIcon = categoryEmoji[categoria] || '📋';
+  const deptIcon = deptEmoji[departamento] || '🏢';
+  const priorityIcon = priorityIndicator[prioridad] || '🟡';
+  const deptTag = departamento ? `[${departamento.toUpperCase()}]` : '[GENERAL]';
   
   // Extraer primeras palabras del mensaje como preview
-  const preview = messageData.mensaje.substring(0, 50).trim();
+  const preview = messageData.mensaje.substring(0, 40).trim();
   const previewText = preview.length < messageData.mensaje.length ? `${preview}...` : preview;
   
-  return `${emoji} ${dept} ${previewText} - ${ticketId}`;
+  // Formato simple como en tu ClickUp actual - sin emojis complejos
+  const preview = messageData.mensaje.substring(0, 60).trim();
+  const previewText = preview.length < messageData.mensaje.length ? `${preview}...` : preview;
+  
+  return `${previewText} - ${ticketId}`;
 }
 
 /**
@@ -274,7 +329,7 @@ function generateTicketDescription(messageData, slaData) {
 
 ## 👤 Información del Remitente
 
-**Tipo:** ${tipo === 'anonimo' ? 'Anónimo' : 'Identificado'}
+**Tipo de solicitud:** ${getTipoSolicitud(messageData)}
 `;
 
   if (tipo === 'identificado') {
@@ -300,6 +355,30 @@ ${getRecommendedActions(messageData)}
 `;
 
   return description;
+}
+
+/**
+ * Mapear tipo de solicitud según tu estructura de ClickUp
+ */
+function getTipoSolicitud(messageData) {
+  const { departamento, categoria, tipo } = messageData;
+  
+  // Mapeo basado en tu ClickUp actual
+  if (tipo === 'identificado') {
+    switch (departamento) {
+      case 'it':
+        return 'Website / Infraestructura';
+      case 'administracion':
+      case 'gerencia':
+        return 'Administración';
+      case 'finanzas':
+        return 'Dynamics / Gestión de datos';
+      default:
+        return 'Interno';
+    }
+  } else {
+    return 'Solicitud externa';
+  }
 }
 
 /**

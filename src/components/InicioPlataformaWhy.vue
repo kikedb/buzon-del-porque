@@ -313,9 +313,9 @@
 <script setup>
 import { ref, computed } from 'vue';
 import apiService, { APIError, NetworkError, ValidationError } from '@/services/apiService';
-// Comentado temporalmente hasta resolver problemas de dependencias
-// import slaService from '@/services/slaService';
-// import privacyService from '@/services/privacyService';
+// Servicios empresariales integrados
+import slaService from '@/services/slaService';
+import privacyService from '@/services/privacyService';
 
 const modo = ref('nombre');
 
@@ -491,43 +491,50 @@ function validateField(field) {
   }
 }
 
-// Actualizar preview del SLA (temporalmente deshabilitado)
+// Actualizar preview del SLA
 function updateSLAPreview() {
-  console.log('SLA preview - temporalmente deshabilitado');
-  // Simulación temporal para mostrar funcionalidad
-  if (form.value.categoria && form.value.departamento) {
-    slaInfo.value = {
-      slaHours: 24,
-      dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
-      priority: 'medium',
-      businessReason: 'SLA calculado según configuración estándar',
-      escalationThreshold: 18
-    };
-    showSLAIndicator.value = true;
-  } else {
+  try {
+    if (form.value.categoria && form.value.prioridad) {
+      const mockData = {
+        categoria: form.value.categoria,
+        departamento: form.value.departamento,
+        prioridad: form.value.prioridad,
+        mensaje: form.value.mensaje
+      };
+      
+      slaInfo.value = slaService.calculateSLA(mockData);
+      showSLAIndicator.value = true;
+      console.log('⏰ SLA preview actualizado:', slaInfo.value);
+    } else {
+      showSLAIndicator.value = false;
+    }
+  } catch (error) {
+    console.warn('⚠️ Error en SLA preview:', error);
     showSLAIndicator.value = false;
   }
 }
 
-// Evaluar riesgo de privacidad (temporalmente deshabilitado)
+// Evaluar riesgo de privacidad
 function updatePrivacyAssessment() {
-  console.log('Privacy assessment - temporalmente deshabilitado');
-  // Simulación temporal para mostrar funcionalidad
-  if (form.value.mensaje) {
-    const hasEmail = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(form.value.mensaje);
-    const hasPhone = /\b\d{8,15}\b/.test(form.value.mensaje);
-    
-    if (hasEmail || hasPhone) {
-      privacyRisk.value = {
-        riskLevel: 'HIGH',
-        risks: ['Información sensible detectada en el mensaje'],
-        recommendedAnonymization: 'STANDARD'
-      };
-      showPrivacyWarning.value = true;
+  try {
+    if (form.value.mensaje) {
+      const assessment = privacyService.assessPrivacyRisk({
+        mensaje: form.value.mensaje,
+        tipo: modo.value
+      });
+      
+      if (assessment.riskLevel !== 'LOW') {
+        privacyRisk.value = assessment;
+        showPrivacyWarning.value = true;
+        console.log('🔐 Riesgo de privacidad detectado:', assessment);
+      } else {
+        showPrivacyWarning.value = false;
+      }
     } else {
       showPrivacyWarning.value = false;
     }
-  } else {
+  } catch (error) {
+    console.warn('⚠️ Error en evaluación de privacidad:', error);
     showPrivacyWarning.value = false;
   }
 }
